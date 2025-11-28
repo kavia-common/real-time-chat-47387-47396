@@ -59,9 +59,12 @@ export function createWSClient(wsUrl: string | undefined, handlers: WSHandlers =
       const data = JSON.parse(String(ev.data));
       // Expecting data in shape: { id, user, text, ts }
       if (data && typeof data.text === "string") {
+        // Prefer crypto.randomUUID when available; fall back to Date.now
         const id =
-          (globalThis.crypto?.randomUUID?.() as string) ??
-          String(Date.now());
+          typeof globalThis.crypto !== "undefined" &&
+          typeof (globalThis.crypto as any).randomUUID === "function"
+            ? (globalThis.crypto as any).randomUUID()
+            : String(Date.now());
         handlers.onMessage?.({
           id: String(data.id ?? id),
           user: String(data.user ?? "unknown"),
@@ -77,7 +80,7 @@ export function createWSClient(wsUrl: string | undefined, handlers: WSHandlers =
 
   return {
     send: (msg) => {
-      if (socket && socket.readyState === WebSocket.OPEN) {
+      if (socket?.readyState === WebSocket.OPEN) {
         const payload = { user: msg.user, text: msg.text };
         socket.send(JSON.stringify(payload));
       } else {

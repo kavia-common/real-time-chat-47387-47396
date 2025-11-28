@@ -1,7 +1,6 @@
 import {
   component$,
   useSignal,
-  useTask$,
   $,
   useVisibleTask$,
   useStyles$,
@@ -43,13 +42,21 @@ export default component$(() => {
   const error = useSignal<string | null>(null);
   const wsStatus = useSignal<"disconnected" | "connecting" | "connected" | "error">("disconnected");
   const canSend = useSignal(false); // track connection state for send availability
-  const messagesEndRef = useSignal<HTMLDivElement>();
 
-  // Auto scroll on new message
-  useTask$(({ track }) => {
+  // The end-of-messages marker. Use a DOM element in a signal.
+  const messagesEndRef = useSignal<Element | null>(null);
+
+  // Auto scroll on new message (client-only after mount).
+  useVisibleTask$(({ track }) => {
+    // Track message length so this re-runs on append.
     track(() => messages.value.length);
+
+    // Defer to microtask to ensure DOM updated.
     queueMicrotask(() => {
-      messagesEndRef.value?.scrollIntoView({ behavior: "smooth" });
+      const el = messagesEndRef.value;
+      if (el && typeof (el as any).scrollIntoView === "function") {
+        (el as HTMLElement).scrollIntoView({ behavior: "smooth", block: "end" });
+      }
     });
   });
 
@@ -215,7 +222,7 @@ export default component$(() => {
               </div>
             </div>
           ))}
-          <div ref={messagesEndRef} />
+          <div ref={(el) => (messagesEndRef.value = el)} />
         </div>
 
         <div class="input-bar">
